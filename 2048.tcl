@@ -6,16 +6,17 @@ package require struct::list
 # Board size.
 set size 4
 
-# Vector sum of lists v1 and v2.
-proc vector-add {v1 v2} {
-    set result {}
-    foreach a $v1 b $v2 {
-        lappend result [expr {$a + $b}]
-    }
-    return $result
-}
-
-# Iterate over all cells of the game board.
+# Iterate over all cells of the game board and run script for each.
+#
+# We imagine the game board to consist of cells that each can contain a game
+# tile that corresponds to numbers 2..2048 or nothing.
+# - cellList is a list of cell indexes (coordinates), which are
+# themselves lists of the form {i j} that each represent the location
+# of a cell on the board.
+# - varName1 are varName2 are names of index variables
+# - cellVarName is names of variables that will contain the values of the cell
+# for each cell. Assigning to it will change the game board.
+# - script is the script to run
 proc forcells {cellList varName1 varName2 cellVarName script} {
     upvar $varName1 i
     upvar $varName2 j
@@ -29,8 +30,7 @@ proc forcells {cellList varName1 varName2 cellVarName script} {
     }
 }
 
-# Generate a list of index vectors (lists of the form {i j}) of all cells of
-# the board.
+# Generate a list of cell indexes for all cells on the board.
 proc cell-indexes {} {
     global size
     set list {}
@@ -47,6 +47,8 @@ proc valid-index {i} {
     expr {0 <= $i && $i < $size}
 }
 
+# Return 1 if the predicate pred is true when applied to all item on the list
+# or 0 otherwise.
 proc map-and {list pred} {
     set res 1
     foreach item $list {
@@ -56,19 +58,22 @@ proc map-and {list pred} {
     return $res
 }
 
-proc valid-indexes list {
-    map-and $list valid-index
+# Say if list represents valid cell coordinates.
+proc valid-cell? cell {
+    map-and $cell valid-index
 }
 
+# Get value of game board cell.
 proc cell-get cell {
     board get cell {*}$cell
 }
 
+# Set value of game board cell.
 proc cell-set {cell value} {
     board set cell {*}$cell $value
 }
 
-# Filter the list of board cell indexes cellList to only leave in those indexes
+# Filter a list of board cell indexes cellList to only leave in those indexes
 # that correspond to empty board cells.
 proc empty {cellList} {
     ::struct::list filterfor x $cellList {[cell-get $x] == 0}
@@ -89,28 +94,46 @@ proc spawn-new {} {
     }
 }
 
-# Try to shift all cells one step in the direction of directionVect.
-proc move-all {directionVect {onlyCheck 0}} {
+# Vector sum of lists v1 and v2.
+proc vector-add {v1 v2} {
+    set result {}
+    foreach a $v1 b $v2 {
+        lappend result [expr {$a + $b}]
+    }
+    return $result
+}
+
+# Try to shift all cells one step in the direction of directionVect
+# or just say if that move is possible.
+proc move-all {directionVect {checkOnly 0}} {
     set changedCells 0
+
     forcells [cell-indexes] i j cell {
         set newIndex [vector-add "$i $j" $directionVect]
         set removedStar 0
+
         if {$cell eq {2*}} {
             set cell 2
             set removedStar 1
         }
-        if {$cell != 0 && [valid-indexes $newIndex]} {
+
+        # For every nonempty source cell and valid destination cell...
+        if {$cell != 0 && [valid-cell? $newIndex]} {
+            # Destination is empty.
             if {[cell-get $newIndex] == 0} {
-                if {$onlyCheck} {
+                if {$checkOnly} {
+                    # -level 2 is to return from both forcells and move-all.
                     return -level 2 true
                 } else {
+                    # Move tile to empty cell.
                     cell-set $newIndex $cell
                     set cell 0
                     incr changedCells
                 }
+            # Destination is the same number as source.
             } elseif {([cell-get $newIndex] eq $cell) &&
                       [string first + $cell] == -1} {
-                if {$onlyCheck} {
+                if {$checkOnly} {
                     return -level 2 true
                 } else {
                     # When merging two tiles into one mark the new tile with
@@ -122,13 +145,16 @@ proc move-all {directionVect {onlyCheck 0}} {
                 }
             }
         }
-        if {$onlyCheck && $removedStar} {
+
+        if {$checkOnly && $removedStar} {
             set cell {2*}
         }
     }
-    if {$onlyCheck} {
+
+    if {$checkOnly} {
         return false
     }
+
     # Remove "changed this turn" markers at the end of the turn.
     if {$changedCells == 0} {
         forcells [cell-indexes] i j cell {
@@ -163,6 +189,7 @@ proc check-lose {canMove} {
     }
 }
 
+# Pretty-print the board.
 proc print-board {} {
     forcells [cell-indexes] i j cell {
         if {$j == 0} {
@@ -170,9 +197,9 @@ proc print-board {} {
         }
         puts -nonewline [
             if {$cell != 0} {
-                format "\[%3s\]" $cell
+                format "\[%4s\]" $cell
             } else {
-                lindex "....."
+                lindex "......"
             }
         ]
     }
@@ -186,7 +213,7 @@ proc main {} {
     board add columns $size
     board add rows $size
 
-    # Generate starting board
+    # Generate emply board of the given size.
     forcells [cell-indexes] i j cell {
         set cell 0
     }
@@ -202,14 +229,20 @@ proc main {} {
     while true {
         set playerMove 0
         set canMove {}
+
         spawn-new
         print-board
         check-win
+
+        # Find possible moves.
         foreach {button vector} $controls {
             dict set canMove $button [can-move? $vector]
         }
         check-lose $canMove
+
+        # Get valid input from the player.
         while {$playerMove == 0} {
+            # Print prompt.
             puts -nonewline "Move ("
             foreach {button vector} $controls {
                 if {[dict get $canMove $button]} {
@@ -217,13 +250,17 @@ proc main {} {
                 }
             }
             puts ")?"
+
             set playerInput [gets stdin]
+
+            # Validate input.
             if {[dict exists $canMove $playerInput] &&
                 [dict get $canMove $playerInput] &&
                 [dict exists $controls $playerInput]} {
                 set playerMove [dict get $controls $playerInput]
             }
         }
+
         # Apply current move while changes occur on the board.
         while true {
             if {[move-all $playerMove] == 0} break
