@@ -13,43 +13,35 @@ proc vector-add {v1 v2} {
 	return $result
 }
 
-proc forcells {varName1 varName2 cellVarName size script} {
+proc forcells {cellList varName1 varName2 cellVarName script} {
 	upvar $varName1 i
 	upvar $varName2 j
 	upvar $cellVarName c
-	for {set i 0} {$i < $size} {incr i} {
-		for {set j 0} {$j < $size} {incr j} {
-			set c [field get cell $i $j]
-			uplevel $script
-			field set cell $i $j $c
-		}
+	foreach cell $cellList {
+		set i [lindex $cell 0]
+		set j [lindex $cell 1]
+		set c [field get cell {*}$cell]
+		uplevel $script
+		field set cell $i $j $c
 	}
 }
 
-proc cell-indexes {} {
+proc cell-indexes {{directionVect {0 0}}} {
 	global size
 	set list {}
-	for {set i 0} {$i < $size} {incr i} {
-		for {set j 0} {$j < $size} {incr j} {
+	set range0 [::struct::list iota $size]
+	set range1 [::struct::list iota $size]
+	foreach r {0 1} {
+		if {[lindex $directionVect $r] > 0} {
+			set range$r [::struct::list reverse [set range$r]]
+		}
+	}
+	foreach i $range0 {
+		foreach j $range1 {
 			lappend list [list $i $j]
 		}
 	}
 	return $list
-}
-
-proc cell-query {vect} {
-	set res {}
-	set err [
-		catch {
-			set res [field get cell [expr $i + $offsetX] [expr $j + $offsetY]]
-		} msg
-	]
-	puts "$err $res"
-	if {! $err} {
-		return $res
-	} else {
-		return
-	}
 }
 
 proc valid-index {i} {
@@ -86,20 +78,50 @@ proc uniq {list} {
     lsort -unique $list
 }
 
-proc nonempty {} {
-	::struct::list filterfor x [cell-indexes] {[cell-value $x] ne 0}
+proc empty {cellList} {
+	::struct::list filterfor x $cellList {[cell-value $x] == 0}
+}
+proc nonempty {cellList} {
+	::struct::list filterfor x $cellList {[cell-value $x] != 0}
 }
 
-proc adjacent-to-nonempty {} {
-	uniq [::struct::list flatten [::struct::list map [nonempty] adjacent]]
+proc adjacent-to-nonempty {cellList} {
+	uniq [::struct::list flatten [::struct::list map [nonempty $cellList] adjacent]]
+}
+
+proc pick list {
+	lindex $list [expr {int(rand() * [llength $list])}]
+}
+
+proc spawn-one {} {
+	forcells [list [pick [empty [adjacent-to-nonempty [cell-indexes]]]]] i j cell {
+		set cell 1
+	}
+}
+
+proc move-all {directionVect} {
+	forcells [cell-indexes $directionVect] i j cell {
+		set new-index [vector-add [field get cell {*}$cell] $directionVect]
+		if {[cell-value $new-index] == 0} {
+			field set cell {*}$new-index $cell
+			set cell 0
+		} elseif {[cell-value $new-index] == $c} {
+			field set cell {*}$new-index [expr {2 * $c}]
+			set cell 0
+		}
+	}
 }
 
 struct::matrix field
 field add columns $size
 field add rows $size
 
-forcells i j cell $size {
-	set cell [expr $i*$j]
+forcells [cell-indexes] i j cell {
+	set cell 0
 }
+forcells [list [pick [cell-indexes]]] i j cell {
+	set cell 1
+}
+
+
 puts [field format 2string]
-puts [adjacent-to-nonempty]
