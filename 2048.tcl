@@ -59,15 +59,6 @@ proc valid-indexes vect {
 	map-and $vect valid-index
 }
 
-# Get the list of game board cells adjacent to coordinates $vect.
-proc adjacent {vect} {
-	set adjacentList {}
-	foreach offset {{-1 0} {1 0} {0 -1} {0 1}} {
-		lappend adjacentList [vector-add $vect $offset]
-	}
-	return [::struct::list filter $adjacentList valid-indexes]
-}
-
 proc cell-get cell {
 	board get cell {*}$cell
 }
@@ -76,26 +67,10 @@ proc cell-set {cell value} {
 	board set cell {*}$cell $value
 }
 
-proc uniq {list} {
-    lsort -unique $list
-}
-
 # Filter the list of board cell indexes $cellList to only leave those indexes
 # that correspond to empty cells.
 proc empty {cellList} {
 	::struct::list filterfor x $cellList {[cell-get $x] == 0}
-}
-
-# Filter the list of board cell indexes $cellList to only leave those indexes
-# that correspond to non-empty cells.
-proc nonempty {cellList} {
-	::struct::list filterfor x $cellList {[cell-get $x] != 0}
-}
-
-# Filter the list of board cell indexes $cellList to only leave those indexes
-# that correspont to cells next to nonempty cells.
-proc adjacent-to-nonempty {cellList} {
-	uniq [::struct::list flatten [::struct::list map [nonempty $cellList] adjacent]]
 }
 
 # Pick a randon item from $list.
@@ -103,9 +78,9 @@ proc pick list {
 	lindex $list [expr {int(rand() * [llength $list])}]
 }
 
-# Add a "1" to an empty cell on the board adjacent to an nonempty one.
+# Put a "1" into an empty cell on the board.
 proc spawn-one {} {
-	forcells [list [pick [empty [adjacent-to-nonempty [cell-indexes]]]]] i j cell {
+	forcells [list [pick [empty [cell-indexes]]]] i j cell {
 		set cell 1*
 	}
 }
@@ -133,6 +108,22 @@ proc move-all {directionVect} {
 	return $changedCells
 }
 
+proc print-board {} {
+	forcells [cell-indexes] i j cell {
+		if {$j == 0} {
+			puts ""
+		}
+		puts -nonewline [
+			if {$cell != 0} {
+				format "\[%3s\]" $cell
+			} else {
+				lindex "....."
+			}
+		]
+	}
+	puts "\n"
+}
+
 proc main {} {
 	global size
 
@@ -151,15 +142,15 @@ proc main {} {
 	# Game loop.
 	while true {
 		set playerMove 0
-		puts [board format 2string]
-		puts "----"
+		print-board
 		while {$playerMove == 0} {
+			puts "Move (h, j, k, l)?"
 			set playerMove [
 				switch [gets stdin] {
-					h {lindex {-1  0}}
-					j {lindex { 0  1}}
-					k {lindex { 0 -1}}
-					l {lindex { 1  0}}
+					h {lindex {0 -1}}
+					j {lindex {1 0}}
+					k {lindex {-1 0}}
+					l {lindex {0 1}}
 					default {lindex 0}
 				}
 			]
