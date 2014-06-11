@@ -1,4 +1,4 @@
-# A minimal implementation of the game 2048 in Tcl
+# A minimal implementation of the game 2048 in Tcl.
 package require Tcl 8.2
 package require struct::matrix
 package require struct::list
@@ -93,13 +93,15 @@ proc move-all {directionVect {onlyCheck 0}} {
 	set changedCells 0
 	forcells [cell-indexes] i j cell {
 		set newIndex [vector-add "$i $j" $directionVect]
-		if {!$onlyCheck && ($cell eq {2*})} {
+		set removedStar 0
+		if {$cell eq {2*}} {
 			set cell 2
+			set removedStar 1
 		}
 		if {$cell != 0 && [valid-indexes $newIndex]} {
 			if {[cell-get $newIndex] == 0} {
 				if {$onlyCheck} {
-					return true
+					return -level 2 true
 				} else {
 					cell-set $newIndex $cell
 					set cell 0
@@ -108,9 +110,9 @@ proc move-all {directionVect {onlyCheck 0}} {
 			} elseif {([cell-get $newIndex] eq $cell) &&
 				      [string first + $cell] == -1} {
 				if {$onlyCheck} {
-					return true
+					return -level 2 true
 				} else {
-					# When merging two cells into one mark the new cell with a
+					# When merging two cells into one mark the new cell with the
 					# marker of "+" to ensure it doesn't get merged or moved
 					# again this turn.
 					cell-set $newIndex [expr {2 * $cell}]+
@@ -119,6 +121,12 @@ proc move-all {directionVect {onlyCheck 0}} {
 				}
 			}
 		}
+		if {$onlyCheck && $removedStar} {
+			set cell {2*}
+		}
+	}
+	if {$onlyCheck} {
+		return false
 	}
 	# Remove "changed this turn" markers at the end of the turn.
 	if {$changedCells == 0} {
@@ -179,6 +187,13 @@ proc main {} {
 		set cell 0
 	}
 
+	set controls {
+		h {0 -1}
+		j {1 0}
+		k {-1 0}
+		l {0 1}
+	}
+
 	# Game loop.
 	while true {
 		set playerMove 0
@@ -187,16 +202,21 @@ proc main {} {
 		check-win
 		check-lose
 		while {$playerMove == 0} {
-			puts "Move (h, j, k, l)?"
-			set playerMove [
-				switch [gets stdin] {
-					h {lindex {0 -1}}
-					j {lindex {1 0}}
-					k {lindex {-1 0}}
-					l {lindex {0 1}}
-					default {lindex 0}
+			set canMove {}
+			puts -nonewline "Move ("
+			foreach {button vector} $controls {
+				set x [can-move? $vector]
+				dict set canMove $button $x
+				if {$x} {
+					puts -nonewline $button
 				}
-			]
+			}
+			puts ")?"
+			set playerInput [gets stdin]
+			if {[dict get $canMove $playerInput] &&
+				[dict exists $controls $playerInput]} {
+				set playerMove [dict get $controls $playerInput]
+			}
 		}
 		while true {
 			if {[move-all $playerMove] == 0} break
