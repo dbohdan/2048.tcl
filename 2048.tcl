@@ -80,31 +80,43 @@ proc pick list {
 
 # Put a "2" into an empty cell on the board.
 proc spawn-new {} {
-	forcells [list [pick [empty [cell-indexes]]]] i j cell {
-		set cell 2*
+	set emptyCell [pick [empty [cell-indexes]]]
+	if {[llength $emptyCell] > 0} {
+		forcells [list $emptyCell] i j cell {
+			set cell 2*
+		}
 	}
 }
 
 # Try to shift all cells one step in the direction of $directionVect.
-proc move-all {directionVect} {
+proc move-all {directionVect {onlyCheck 0}} {
 	set changedCells 0
 	forcells [cell-indexes] i j cell {
 		set newIndex [vector-add "$i $j" $directionVect]
-		if {$cell eq {2*}} {
+		if {!$onlyCheck && ($cell eq {2*})} {
 			set cell 2
 		}
 		if {$cell != 0 && [valid-indexes $newIndex]} {
 			if {[cell-get $newIndex] == 0} {
-				cell-set $newIndex $cell
-				set cell 0
-				incr changedCells
-			} elseif {[cell-get $newIndex] eq $cell} {
-				# When merging two cells into one mark the new cell with a
-				# marker of "+" to ensure it doesn't get merged or moved
-				# again this turn.
-				cell-set $newIndex [expr {2 * $cell}]+
-				set cell 0
-				incr changedCells
+				if {$onlyCheck} {
+					return true
+				} else {
+					cell-set $newIndex $cell
+					set cell 0
+					incr changedCells
+				}
+			} elseif {([cell-get $newIndex] eq $cell) &&
+				      [string first + $cell] == -1} {
+				if {$onlyCheck} {
+					return true
+				} else {
+					# When merging two cells into one mark the new cell with a
+					# marker of "+" to ensure it doesn't get merged or moved
+					# again this turn.
+					cell-set $newIndex [expr {2 * $cell}]+
+					set cell 0
+					incr changedCells
+				}
 			}
 		}
 	}
@@ -115,6 +127,28 @@ proc move-all {directionVect} {
 		}
 	}
 	return $changedCells
+}
+
+proc can-move? {directionVect} {
+	move-all $directionVect 1
+}
+
+proc check-win {} {
+	forcells [cell-indexes] i j cell {
+		if {$cell == 2048} {
+			puts "You win!"
+			exit 0
+		}
+	}
+}
+
+proc check-lose {} {
+	forcells [cell-indexes] i j cell {
+		if {$cell == -1} {
+			puts "You lose."
+			exit 0
+		}
+	}
 }
 
 proc print-board {} {
@@ -150,6 +184,8 @@ proc main {} {
 		set playerMove 0
 		spawn-new
 		print-board
+		check-win
+		check-lose
 		while {$playerMove == 0} {
 			puts "Move (h, j, k, l)?"
 			set playerMove [
