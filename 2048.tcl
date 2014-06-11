@@ -20,24 +20,17 @@ proc forcells {cellList varName1 varName2 cellVarName script} {
 	foreach cell $cellList {
 		set i [lindex $cell 0]
 		set j [lindex $cell 1]
-		set c [field get cell {*}$cell]
+		set c [cell-value $cell]
 		uplevel $script
-		field set cell $i $j $c
+		cell-set "$i $j" $c
 	}
 }
 
-proc cell-indexes {{directionVect {0 0}}} {
+proc cell-indexes {} {
 	global size
 	set list {}
-	set range0 [::struct::list iota $size]
-	set range1 [::struct::list iota $size]
-	foreach r {0 1} {
-		if {[lindex $directionVect $r] < 0} {
-			set range$r [::struct::list reverse [set range$r]]
-		}
-	}
-	foreach i $range0 {
-		foreach j $range1 {
+	foreach i [::struct::list iota $size] {
+		foreach j [::struct::list iota $size] {
 			lappend list [list $i $j]
 		}
 	}
@@ -74,6 +67,10 @@ proc cell-value cell {
 	field get cell {*}$cell
 }
 
+proc cell-set {cell value} {
+	field set cell {*}$cell $value
+}
+
 proc uniq {list} {
     lsort -unique $list
 }
@@ -100,27 +97,32 @@ proc spawn-one {} {
 }
 
 proc move-all {directionVect} {
-	forcells [cell-indexes $directionVect] i j cell {
+	set changedCells 0
+	forcells [cell-indexes] i j cell {
 		set newIndex [vector-add "$i $j" $directionVect]
 		if {$cell eq {1*}} {
 			set cell 1
 		}
-		if {[valid-indexes $newIndex]} {
+		if {$cell != 0 && [valid-indexes $newIndex]} {
 			if {[cell-value $newIndex] == 0} {
-				field set cell {*}$newIndex $cell
+				cell-set $newIndex $cell
 				set cell 0
+				incr changedCells
 			} elseif {[cell-value $newIndex] == $cell} {
-				field set cell {*}$newIndex [expr {2 * $cell}]
+				cell-set $newIndex [expr {2 * $cell}]
 				set cell 0
+				incr changedCells
 			}
 		}
 	}
+	return $changedCells
 }
 
 struct::matrix field
 field add columns $size
 field add rows $size
 
+# Generate starting field
 forcells [cell-indexes] i j cell {
 	set cell 0
 }
@@ -128,6 +130,7 @@ forcells [list [pick [cell-indexes]]] i j cell {
 	set cell 1
 }
 
+# Game loop.
 while 1 {
 	set playerMove 0
 	puts [field format 2string]
@@ -143,6 +146,8 @@ while 1 {
 			}
 		]
 	}
-	move-all $playerMove
+	while 1 {
+		if {[move-all $playerMove] == 0} break
+	}
 	spawn-one
 }
