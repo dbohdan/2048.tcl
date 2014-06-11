@@ -1,11 +1,12 @@
 # A minimal implementation of the game 2048 in Tcl.
-package require Tcl 8.2
+package require Tcl 8.5
 package require struct::matrix
 package require struct::list
 
 # Board size.
 set size 4
 
+# Vector sum of lists v1 and v2.
 proc vector-add {v1 v2} {
 	set result {}
 	foreach a $v1 b $v2 {
@@ -46,17 +47,17 @@ proc valid-index {i} {
 	expr {0 <= $i && $i < $size}
 }
 
-proc map-and {vect pred} {
+proc map-and {list pred} {
 	set res 1
-	foreach item $vect {
+	foreach item $list {
 		set res [expr {$res && [$pred $item]}]
 		if {! $res} break
 	}
 	return $res
 }
 
-proc valid-indexes vect {
-	map-and $vect valid-index
+proc valid-indexes list {
+	map-and $list valid-index
 }
 
 proc cell-get cell {
@@ -67,13 +68,13 @@ proc cell-set {cell value} {
 	board set cell {*}$cell $value
 }
 
-# Filter the list of board cell indexes $cellList to only leave those indexes
-# that correspond to empty cells.
+# Filter the list of board cell indexes cellList to only leave in those indexes
+# that correspond to empty board cells.
 proc empty {cellList} {
 	::struct::list filterfor x $cellList {[cell-get $x] == 0}
 }
 
-# Pick a randon item from $list.
+# Pick a random item from list.
 proc pick list {
 	lindex $list [expr {int(rand() * [llength $list])}]
 }
@@ -88,7 +89,7 @@ proc spawn-new {} {
 	}
 }
 
-# Try to shift all cells one step in the direction of $directionVect.
+# Try to shift all cells one step in the direction of directionVect.
 proc move-all {directionVect {onlyCheck 0}} {
 	set changedCells 0
 	forcells [cell-indexes] i j cell {
@@ -112,8 +113,8 @@ proc move-all {directionVect {onlyCheck 0}} {
 				if {$onlyCheck} {
 					return -level 2 true
 				} else {
-					# When merging two cells into one mark the new cell with the
-					# marker of "+" to ensure it doesn't get merged or moved
+					# When merging two tiles into one mark the new tile with
+					# the marker of "+" to ensure it doesn't get merged
 					# again this turn.
 					cell-set $newIndex [expr {2 * $cell}]+
 					set cell 0
@@ -137,10 +138,12 @@ proc move-all {directionVect {onlyCheck 0}} {
 	return $changedCells
 }
 
+# Is it possible to move any tiles in the direction of directionVect?
 proc can-move? {directionVect} {
 	move-all $directionVect 1
 }
 
+# The player wins when there's a 2048 tile.
 proc check-win {} {
 	forcells [cell-indexes] i j cell {
 		if {$cell == 2048} {
@@ -150,12 +153,13 @@ proc check-win {} {
 	}
 }
 
-proc check-lose {} {
-	forcells [cell-indexes] i j cell {
-		if {$cell == -1} {
-			puts "You lose."
-			exit 0
-		}
+# The player loses when the win condition isn't met and there are no possible
+# moves left.
+proc check-lose {canMove} {
+	set values [dict values $canMove]
+	if {!(true in $values || 1 in $values)} {
+		puts "You lose."
+		exit 0
 	}
 }
 
@@ -197,27 +201,30 @@ proc main {} {
 	# Game loop.
 	while true {
 		set playerMove 0
+		set canMove {}
 		spawn-new
 		print-board
 		check-win
-		check-lose
+		foreach {button vector} $controls {
+			dict set canMove $button [can-move? $vector]
+		}
+		check-lose $canMove
 		while {$playerMove == 0} {
-			set canMove {}
 			puts -nonewline "Move ("
 			foreach {button vector} $controls {
-				set x [can-move? $vector]
-				dict set canMove $button $x
-				if {$x} {
+				if {[dict get $canMove $button]} {
 					puts -nonewline $button
 				}
 			}
 			puts ")?"
 			set playerInput [gets stdin]
-			if {[dict get $canMove $playerInput] &&
+			if {[dict exists $canMove $playerInput] &&
+				[dict get $canMove $playerInput] &&
 				[dict exists $controls $playerInput]} {
 				set playerMove [dict get $controls $playerInput]
 			}
 		}
+		# Apply current move while changes occur on the board.
 		while true {
 			if {[move-all $playerMove] == 0} break
 		}
