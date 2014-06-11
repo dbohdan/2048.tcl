@@ -78,10 +78,10 @@ proc pick list {
 	lindex $list [expr {int(rand() * [llength $list])}]
 }
 
-# Put a "1" into an empty cell on the board.
-proc spawn-one {} {
+# Put a "2" into an empty cell on the board.
+proc spawn-new {} {
 	forcells [list [pick [empty [cell-indexes]]]] i j cell {
-		set cell 1*
+		set cell 2*
 	}
 }
 
@@ -90,19 +90,28 @@ proc move-all {directionVect} {
 	set changedCells 0
 	forcells [cell-indexes] i j cell {
 		set newIndex [vector-add "$i $j" $directionVect]
-		if {$cell eq {1*}} {
-			set cell 1
+		if {$cell eq {2*}} {
+			set cell 2
 		}
 		if {$cell != 0 && [valid-indexes $newIndex]} {
 			if {[cell-get $newIndex] == 0} {
 				cell-set $newIndex $cell
 				set cell 0
 				incr changedCells
-			} elseif {[cell-get $newIndex] == $cell} {
-				cell-set $newIndex [expr {2 * $cell}]
+			} elseif {[cell-get $newIndex] eq $cell} {
+				# When merging two cells into one mark the new cell with a
+				# marker of "+" to ensure it doesn't get merged or moved
+				# again this turn.
+				cell-set $newIndex [expr {2 * $cell}]+
 				set cell 0
 				incr changedCells
 			}
+		}
+	}
+	# Remove "changed this turn" markers at the end of the turn.
+	if {$changedCells == 0} {
+		forcells [cell-indexes] i j cell {
+			set cell [string trim $cell +]
 		}
 	}
 	return $changedCells
@@ -135,13 +144,11 @@ proc main {} {
 	forcells [cell-indexes] i j cell {
 		set cell 0
 	}
-	forcells [list [pick [cell-indexes]]] i j cell {
-		set cell 1
-	}
 
 	# Game loop.
 	while true {
 		set playerMove 0
+		spawn-new
 		print-board
 		while {$playerMove == 0} {
 			puts "Move (h, j, k, l)?"
@@ -158,7 +165,6 @@ proc main {} {
 		while true {
 			if {[move-all $playerMove] == 0} break
 		}
-		spawn-one
 	}
 }
 
