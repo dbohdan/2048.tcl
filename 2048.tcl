@@ -32,7 +32,7 @@ proc cell-indexes {{directionVect {0 0}}} {
 	set range0 [::struct::list iota $size]
 	set range1 [::struct::list iota $size]
 	foreach r {0 1} {
-		if {[lindex $directionVect $r] > 0} {
+		if {[lindex $directionVect $r] < 0} {
 			set range$r [::struct::list reverse [set range$r]]
 		}
 	}
@@ -95,19 +95,24 @@ proc pick list {
 
 proc spawn-one {} {
 	forcells [list [pick [empty [adjacent-to-nonempty [cell-indexes]]]]] i j cell {
-		set cell 1
+		set cell 1*
 	}
 }
 
 proc move-all {directionVect} {
 	forcells [cell-indexes $directionVect] i j cell {
-		set new-index [vector-add [field get cell {*}$cell] $directionVect]
-		if {[cell-value $new-index] == 0} {
-			field set cell {*}$new-index $cell
-			set cell 0
-		} elseif {[cell-value $new-index] == $c} {
-			field set cell {*}$new-index [expr {2 * $c}]
-			set cell 0
+		set newIndex [vector-add "$i $j" $directionVect]
+		if {$cell eq {1*}} {
+			set cell 1
+		}
+		if {[valid-indexes $newIndex]} {
+			if {[cell-value $newIndex] == 0} {
+				field set cell {*}$newIndex $cell
+				set cell 0
+			} elseif {[cell-value $newIndex] == $cell} {
+				field set cell {*}$newIndex [expr {2 * $cell}]
+				set cell 0
+			}
 		}
 	}
 }
@@ -123,5 +128,21 @@ forcells [list [pick [cell-indexes]]] i j cell {
 	set cell 1
 }
 
-
-puts [field format 2string]
+while 1 {
+	set playerMove 0
+	puts [field format 2string]
+	puts "----"
+	while {$playerMove == 0} {
+		set playerMove [
+			switch [gets stdin] {
+				h {lindex {-1  0}}
+				j {lindex { 0  1}}
+				k {lindex { 0 -1}}
+				l {lindex { 1  0}}
+				default {lindex 0}
+			}
+		]
+	}
+	move-all $playerMove
+	spawn-one
+}
