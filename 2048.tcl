@@ -3,6 +3,7 @@ package require Tcl 8.2
 package require struct::matrix
 package require struct::list
 
+# Board size.
 set size 4
 
 proc vector-add {v1 v2} {
@@ -13,6 +14,7 @@ proc vector-add {v1 v2} {
 	return $result
 }
 
+# Iterate over all cells of the game board.
 proc forcells {cellList varName1 varName2 cellVarName script} {
 	upvar $varName1 i
 	upvar $varName2 j
@@ -20,12 +22,14 @@ proc forcells {cellList varName1 varName2 cellVarName script} {
 	foreach cell $cellList {
 		set i [lindex $cell 0]
 		set j [lindex $cell 1]
-		set c [cell-value $cell]
+		set c [cell-get $cell]
 		uplevel $script
 		cell-set "$i $j" $c
 	}
 }
 
+# Generate a list of index vectors (lists of the form {i j}) of all cells of
+# the board.
 proc cell-indexes {} {
 	global size
 	set list {}
@@ -55,6 +59,7 @@ proc valid-indexes vect {
 	map-and $vect valid-index
 }
 
+# Get the list of game board cells adjacent to coordinates $vect.
 proc adjacent {vect} {
 	set adjacentList {}
 	foreach offset {{-1 0} {1 0} {0 -1} {0 1}} {
@@ -63,39 +68,49 @@ proc adjacent {vect} {
 	return [::struct::list filter $adjacentList valid-indexes]
 }
 
-proc cell-value cell {
-	field get cell {*}$cell
+proc cell-get cell {
+	board get cell {*}$cell
 }
 
 proc cell-set {cell value} {
-	field set cell {*}$cell $value
+	board set cell {*}$cell $value
 }
 
 proc uniq {list} {
     lsort -unique $list
 }
 
+# Filter the list of board cell indexes $cellList to only leave those indexes
+# that correspond to empty cells.
 proc empty {cellList} {
-	::struct::list filterfor x $cellList {[cell-value $x] == 0}
-}
-proc nonempty {cellList} {
-	::struct::list filterfor x $cellList {[cell-value $x] != 0}
+	::struct::list filterfor x $cellList {[cell-get $x] == 0}
 }
 
+# Filter the list of board cell indexes $cellList to only leave those indexes
+# that correspond to non-empty cells.
+proc nonempty {cellList} {
+	::struct::list filterfor x $cellList {[cell-get $x] != 0}
+}
+
+# Filter the list of board cell indexes $cellList to only leave those indexes
+# that correspont to cells next to nonempty cells.
 proc adjacent-to-nonempty {cellList} {
 	uniq [::struct::list flatten [::struct::list map [nonempty $cellList] adjacent]]
 }
 
+# Pick a randon item from $list.
 proc pick list {
 	lindex $list [expr {int(rand() * [llength $list])}]
 }
 
+# Add a "1" to an empty cell on the board adjacent to an nonempty one.
 proc spawn-one {} {
 	forcells [list [pick [empty [adjacent-to-nonempty [cell-indexes]]]]] i j cell {
 		set cell 1*
 	}
 }
 
+# Try to shift all cells one step in the direction of $directionVect.
 proc move-all {directionVect} {
 	set changedCells 0
 	forcells [cell-indexes] i j cell {
@@ -104,11 +119,11 @@ proc move-all {directionVect} {
 			set cell 1
 		}
 		if {$cell != 0 && [valid-indexes $newIndex]} {
-			if {[cell-value $newIndex] == 0} {
+			if {[cell-get $newIndex] == 0} {
 				cell-set $newIndex $cell
 				set cell 0
 				incr changedCells
-			} elseif {[cell-value $newIndex] == $cell} {
+			} elseif {[cell-get $newIndex] == $cell} {
 				cell-set $newIndex [expr {2 * $cell}]
 				set cell 0
 				incr changedCells
@@ -118,36 +133,42 @@ proc move-all {directionVect} {
 	return $changedCells
 }
 
-struct::matrix field
-field add columns $size
-field add rows $size
+proc main {} {
+	global size
 
-# Generate starting field
-forcells [cell-indexes] i j cell {
-	set cell 0
-}
-forcells [list [pick [cell-indexes]]] i j cell {
-	set cell 1
+	struct::matrix board
+	board add columns $size
+	board add rows $size
+
+	# Generate starting board
+	forcells [cell-indexes] i j cell {
+		set cell 0
+	}
+	forcells [list [pick [cell-indexes]]] i j cell {
+		set cell 1
+	}
+
+	# Game loop.
+	while true {
+		set playerMove 0
+		puts [board format 2string]
+		puts "----"
+		while {$playerMove == 0} {
+			set playerMove [
+				switch [gets stdin] {
+					h {lindex {-1  0}}
+					j {lindex { 0  1}}
+					k {lindex { 0 -1}}
+					l {lindex { 1  0}}
+					default {lindex 0}
+				}
+			]
+		}
+		while true {
+			if {[move-all $playerMove] == 0} break
+		}
+		spawn-one
+	}
 }
 
-# Game loop.
-while 1 {
-	set playerMove 0
-	puts [field format 2string]
-	puts "----"
-	while {$playerMove == 0} {
-		set playerMove [
-			switch [gets stdin] {
-				h {lindex {-1  0}}
-				j {lindex { 0  1}}
-				k {lindex { 0 -1}}
-				l {lindex { 1  0}}
-				default {lindex 0}
-			}
-		]
-	}
-	while 1 {
-		if {[move-all $playerMove] == 0} break
-	}
-	spawn-one
-}
+main
