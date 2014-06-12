@@ -126,8 +126,8 @@ proc move-all {directionVect {checkOnly 0}} {
 
         # For every nonempty source cell and valid destination cell...
         if {$cell != 0 && [valid-cell? $newIndex]} {
-            # Destination is empty.
             if {[cell-get $newIndex] == 0} {
+                # Destination is empty.
                 if {$checkOnly} {
                     # -level 2 is to return from both forcells and move-all.
                     return -level 2 true
@@ -137,9 +137,9 @@ proc move-all {directionVect {checkOnly 0}} {
                     set cell 0
                     incr changedCells
                 }
-            # Destination is the same number as source.
             } elseif {([cell-get $newIndex] eq $cell) &&
                       [string first + $cell] == -1} {
+                # Destination is the same number as source.
                 if {$checkOnly} {
                     return -level 2 true
                 } else {
