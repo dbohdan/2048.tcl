@@ -90,15 +90,15 @@ proc pick list {
     lindex $list [expr {int(rand() * [llength $list])}]
 }
 
-# Put a "2*" into an empty cell on the board. The star is to indicate it's new
-# for the player's convenience.
+# Put a "2" into an empty cell on the board.
 proc spawn-new {} {
     set emptyCell [pick [empty [cell-indexes]]]
     if {[llength $emptyCell] > 0} {
         forcells [list $emptyCell] i j cell {
-            set cell 2*
+            set cell 2
         }
     }
+    return $emptyCell
 }
 
 # Return vector sum of lists v1 and v2.
@@ -118,11 +118,6 @@ proc move-all {directionVect {checkOnly 0}} {
     forcells [cell-indexes] i j cell {
         set newIndex [vector-add "$i $j" $directionVect]
         set removedStar 0
-
-        if {$cell eq {2*}} {
-            set cell 2
-            set removedStar 1
-        }
 
         # For every nonempty source cell and valid destination cell...
         if {$cell != 0 && [valid-cell? $newIndex]} {
@@ -151,10 +146,6 @@ proc move-all {directionVect {checkOnly 0}} {
                     incr changedCells
                 }
             }
-        }
-
-        if {$checkOnly && $removedStar} {
-            set cell {2*}
         }
     }
 
@@ -196,15 +187,20 @@ proc check-lose {possibleMoves} {
     }
 }
 
-# Pretty-print the board.
-proc print-board {} {
+# Pretty-print the board. Specify an index in highlight to highlight a cell.
+proc print-board {{highlight {-1 -1}}} {
     forcells [cell-indexes] i j cell {
         if {$j == 0} {
             puts ""
         }
         puts -nonewline [
             if {$cell != 0} {
-                format "\[%4s\]" $cell
+                if {[::struct::list equal "$i $j" $highlight]} {
+                    format "\[%4s\]" $cell*
+                } else {
+                    format "\[%4s\]" $cell
+                }
+
             } else {
                 lindex "......"
             }
@@ -237,8 +233,9 @@ proc main {} {
         set playerMove 0
         set possibleMoves {}
 
-        spawn-new
-        print-board
+        # Add new tile to the board and print the board highlighting this tile.
+        print-board [spawn-new]
+
         check-win
 
         # Find possible moves.
