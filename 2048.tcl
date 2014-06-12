@@ -3,6 +3,20 @@ package require Tcl 8.5
 package require struct::matrix
 package require struct::list
 
+# Enable single-keypress moves on Windows using TWAPI and on *nix using
+# TTY raw mode.
+set inputMethod compatible
+catch {
+    package require term::ansi::ctrl::unix
+    ::term::ansi::ctrl::unix::raw
+    set inputMethod raw
+}
+catch {
+    package require twapi
+    twapi::modify_console_input_mode stdin -lineinput false -echoinput false
+    set inputMethod twapi
+}
+
 # Board size.
 set size 4
 
@@ -172,7 +186,7 @@ proc check-win {} {
     forcells [cell-indexes] i j cell {
         if {$cell == 2048} {
             puts "You win!"
-            exit 0
+            quit-game
         }
     }
 }
@@ -183,7 +197,7 @@ proc check-lose {possibleMoves} {
     set values [dict values $possibleMoves]
     if {!(true in $values || 1 in $values)} {
         puts "You lose."
-        exit 0
+        quit-game
     }
 }
 
@@ -209,10 +223,43 @@ proc print-board {{highlight {-1 -1}}} {
     puts "\n"
 }
 
+# Reset terminal/console and exit.
+proc quit-game {} {
+    global inputMethod
+    switch $inputMethod {
+        twapi {
+            twapi::modify_console_input_mode stdin -lineinput true \
+                                                   -echoinput true
+        }
+        raw {
+            ::term::ansi::ctrl::unix::cooked
+        }
+   }
+   exit 0
+}
+
+# Return player input or quit if it's "q".
+proc get-player-input {} {
+    global inputMethod
+    set input [
+        switch $inputMethod {
+            twapi { read stdin 1 }
+            raw { read stdin 1 }
+            default { gets stdin }
+        }
+    ]
+    if {$input eq "q"} {
+        quit-game
+    }
+    return $input
+}
+
 proc main {} {
     global size
 
     struct::matrix board
+
+    chan configure stdin -buffering none
 
     # Generate an empty board of a given size.
     board add columns $size
@@ -255,7 +302,7 @@ proc main {} {
             }
             puts ")?"
 
-            set playerInput [gets stdin]
+            set playerInput [get-player-input]
 
             # Validate input.
             if {[dict exists $possibleMoves $playerInput] &&
