@@ -6,7 +6,7 @@ package require Tcl 8.5
 package require struct::matrix
 package require struct::list
 
-# utilities 
+# utilities
 
 proc vars args {
     foreach varname $args {
@@ -49,7 +49,7 @@ proc forcells {cellList varName1 varName2 cellVarName script} {
         cell-set [list $i $j] $c
     }
 }
- 
+
 # Generate a list of cell indexes for all cells on the board, i.e.,
 # {{0 0} {0 1} ... {0 size-1} {1 0} {1 1} ... {size-1 size-1}}.
 proc cell-indexes {} {
@@ -62,13 +62,13 @@ proc cell-indexes {} {
     }
     return $list
 }
- 
+
 # Check if a number is a valid cell index (is 0 to size-1).
 proc valid-index i {
     variable size
     expr {0 <= $i && $i < $size}
 }
- 
+
 # Return 1 if the predicate pred is true when applied to all items on the list
 # or 0 otherwise.
 proc map-and {list pred} {
@@ -79,33 +79,33 @@ proc map-and {list pred} {
     }
     return $res
 }
- 
+
 # Check if list represents valid cell coordinates.
 proc valid-cell? cell {
     map-and $cell valid-index
 }
- 
+
 # Get the value of a game board cell.
 proc cell-get cell {
     board get cell {*}$cell
 }
- 
+
 # Set the value of a game board cell.
 proc cell-set {cell value} {
     board set cell {*}$cell $value
 }
- 
+
 # Filter a list of board cell indexes cellList to only have those indexes
 # that correspond to empty board cells.
 proc empty cellList {
     ::struct::list filterfor x $cellList {[cell-get $x] == 0}
 }
- 
+
 # Pick a random item from the given list.
 proc pick list {
     lindex $list [expr {int(rand() * [llength $list])}]
 }
- 
+
 # Put a "2*" into an empty cell on the board. The star is to indicate it's new
 # for the player's convenience.
 proc spawn-new {} {
@@ -117,7 +117,7 @@ proc spawn-new {} {
     }
     return $emptyCell
 }
- 
+
 # Return vector sum of lists v1 and v2.
 proc vector-add {v1 v2} {
     set result {}
@@ -126,16 +126,16 @@ proc vector-add {v1 v2} {
     }
     return $result
 }
- 
+
 # If checkOnly is false try to shift all cells one step in the direction of
 # directionVect. If checkOnly is true just say if that move is possible.
 proc move-all {directionVect {checkOnly 0}} {
     set changedCells 0
- 
+
     forcells [cell-indexes] i j cell {
         set newIndex [vector-add [list $i $j] $directionVect]
         set removedStar 0
- 
+
         # For every nonempty source cell and valid destination cell...
         if {$cell != 0 && [valid-cell? $newIndex]} {
             if {[cell-get $newIndex] == 0} {
@@ -164,11 +164,11 @@ proc move-all {directionVect {checkOnly 0}} {
             }
         }
     }
- 
+
     if {$checkOnly} {
         return false
     }
- 
+
     # Remove "changed this turn" markers at the end of the turn.
     if {$changedCells == 0} {
         forcells [cell-indexes] i j cell {
@@ -177,12 +177,12 @@ proc move-all {directionVect {checkOnly 0}} {
     }
     return $changedCells
 }
- 
+
 # Is it possible to move any tiles in the direction of directionVect?
 proc can-move? directionVect {
     move-all $directionVect 1
 }
- 
+
 # Check win condition. The player wins when there's a 2048 tile.
 proc check-win {} {
     forcells [cell-indexes] i j cell {
@@ -192,7 +192,7 @@ proc check-win {} {
         }
     }
 }
- 
+
 # Check lose condition. The player loses when the win condition isn't met and
 # there are no possible moves.
 proc check-lose possibleMoves {
@@ -206,7 +206,7 @@ proc check-lose possibleMoves {
 proc print-board {{highlight {-1 -1}}} {
     forcells [cell-indexes] i j cell {
         if {$j == 0} {
-            append res \n 
+            append res \n
         }
         append res [
             if {$cell != 0} {
@@ -240,8 +240,8 @@ proc quit-game status {
             }
         }
     }
-    set done $status 
-    return -level 2 
+    set done $status
+    return -level 2
 }
 
 proc input {} {
@@ -276,7 +276,7 @@ proc play_user {} {
         forcells [cell-indexes] i j cell {
             set cell 0
         }
- 
+
         after idle startturn
         return
     }
@@ -308,7 +308,7 @@ proc play_user {} {
     } elseif {$playerInput in $possibleMoves} {
         set playerMove [dict get $controls $playerInput]
     }
-    turn
+    completeturn
 }
 
 proc play_random {} {
@@ -320,23 +320,24 @@ proc play_random {} {
     set playing [after $delay [namespace code play_random]]
 }
 
-proc turn {} {
+proc completeturn {} {
     vars playerMove turns
     if {$playerMove eq {}} {
         flush stdout
+        startturn 0
     } else {
         incr turns
         # Apply current move until no changes occur on the board.
         while true {
             if {[move-all $playerMove] == 0} break
         }
+        startturn
     }
-    startturn
 }
 
-proc startturn {} {
-    vars controls inputMethod output ingame
-    variable playerMove {} 
+proc startturn {{makeNewTile 1}} {
+    vars controls inputMethod output ingame newTile
+    variable playerMove {}
     variable possibleMoves {}
     #buffer output to speed up rending on slower terminals
     if {!$ingame} {
@@ -356,7 +357,10 @@ proc startturn {} {
     }
 
     # Add new tile to the board and print the board highlighting this tile.
-    append output \n[print-board [spawn-new]]
+    if {$makeNewTile} {
+        set newTile [spawn-new]
+    }
+    append output \n[print-board $newTile]
     check-win
 
     # Find possible moves.
@@ -380,15 +384,15 @@ proc startturn {} {
 
 proc init {} {
     # Board size.
-    variable size 0 
-    variable playmode play_user 
+    variable size 0
+    variable playmode play_user
     variable cell
     variable delay 0
     variable ingame 0
     variable playing {}
     variable playtype user
-    variable turns 0 
- 
+    variable turns 0
+
     struct::matrix board
 
     variable inputmode_save {}
@@ -436,7 +440,6 @@ proc init {} {
 
     startturn
     chan event stdin readable [namespace code input]
- 
 }
 
 proc main {} {
@@ -452,13 +455,13 @@ proc bgerror args {
     quit-game 1
 }
 
-
-#from http://wiki.tcl.tk/40097
+# Check if we were run as the primary script by the interpreter.
+# From http://wiki.tcl.tk/40097.
 proc mainScript {} {
     global argv0
     if {[info exists argv0]
      && [file exists [info script]] && [file exists $argv0]} {
-        file stat $argv0        argv0Info
+        file stat $argv0 argv0Info
         file stat [info script] scriptInfo
         expr {$argv0Info(dev) == $scriptInfo(dev)
            && $argv0Info(ino) == $scriptInfo(ino)}
@@ -470,6 +473,3 @@ proc mainScript {} {
 if {[mainScript]} {
     main
 }
-
- 
-
