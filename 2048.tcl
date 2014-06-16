@@ -1,7 +1,11 @@
 #! /bin/env tclsh
-
 # A minimal implementation of the game 2048 in Tcl.
-# http://wiki.tcl.tk/39566
+# Version 0.2.1.
+# This code is released under the terms of the MIT license. See the file
+# LICENSE for details.
+# More at:
+# - https://github.com/dbohdan/2048-tcl -- Git repository;
+# - http://wiki.tcl.tk/39566            -- discussion.
 package require Tcl 8.5
 package require struct::matrix
 package require struct::list
