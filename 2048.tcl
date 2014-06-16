@@ -6,6 +6,7 @@
 # More at:
 # - https://github.com/dbohdan/2048-tcl -- Git repository;
 # - http://wiki.tcl.tk/39566            -- discussion.
+
 package require Tcl 8.5
 package require struct::matrix
 package require struct::list
@@ -227,6 +228,7 @@ proc print-board {{highlight {-1 -1}}} {
     append res \n
 }
 
+# Exit game with a return status.
 proc quit-game status {
     vars done inputMethod inputmode_save output playing stty_save turns
     #after cancel $playing
@@ -248,6 +250,7 @@ proc quit-game status {
     return -level 2
 }
 
+# Event-driven input. Called when a key is pressed by the player.
 proc input {} {
     vars inputMethod output playing
     variable playerInput [read stdin 1]
@@ -259,13 +262,16 @@ proc input {} {
         set playerInput {}
     }
     after cancel $playing
-    play_user
+    play-user
 }
 
-proc play_user {} {
+# Process user input at the start of the game or during play.
+proc play-user {} {
     vars controls inputMethod output playerInput playerMove \
-        playtype possibleMoves preferences size
+        playType possibleMoves preferences size
+
     if {!$size} {
+        # Game starting.
         set size $playerInput
         if {![string is digit $size]} {
             set size 0
@@ -281,14 +287,14 @@ proc play_user {} {
             set cell 0
         }
 
-        after idle startturn
+        after idle start-turn
         return
     }
 
     switch [scan $playerInput %c] {
         3 {
-            if {$playtype eq random} {
-                set playtype user
+            if {$playType eq random} {
+                set playType user
             } else {
                 quit-game 0
             }
@@ -300,8 +306,8 @@ proc play_user {} {
                 quit-game 0
             }
             r {
-                set playtype random
-                after idle [namespace code play_random]
+                set playType random
+                after idle [namespace code play-random]
                 return
             }
             ? {
@@ -312,34 +318,36 @@ proc play_user {} {
     } elseif {$playerInput in $possibleMoves} {
         set playerMove [dict get $controls $playerInput]
     }
-    completeturn
+    complete-turn
 }
 
-proc play_random {} {
+# Set user input to a random possible move.
+proc play-random {} {
     vars controls playing playerInput possibleMoves
     variable delay 1000
-    set playerInput [lindex $possibleMoves [
-            expr {entier(rand() * [llength $possibleMoves])}]]
-    play_user
-    set playing [after $delay [namespace code play_random]]
+    set playerInput [pick $possibleMoves]
+    play-user
+    set playing [after $delay [namespace code play-random]]
 }
 
-proc completeturn {} {
+# Apply player's move, if any, and incr turn counter.
+proc complete-turn {} {
     vars playerMove turns
     if {$playerMove eq {}} {
         flush stdout
-        startturn 0
+        start-turn 0
     } else {
         incr turns
         # Apply current move until no changes occur on the board.
         while true {
             if {[move-all $playerMove] == 0} break
         }
-        startturn
+        start-turn
     }
 }
 
-proc startturn {{makeNewTile 1}} {
+# Render board, find possible moves, add new tile, check win/lose.
+proc start-turn {{makeNewTile 1}} {
     vars controls inputMethod output ingame newTile
     variable playerMove {}
     variable possibleMoves {}
@@ -386,15 +394,16 @@ proc startturn {{makeNewTile 1}} {
     flush stdout
 }
 
+# Set up game board and controls.
 proc init {} {
     # Board size.
     variable size 0
-    variable playmode play_user
+    variable playmode play-user
     variable cell
     variable delay 0
     variable ingame 0
     variable playing {}
-    variable playtype user
+    variable playType user
     variable turns 0
 
     struct::matrix board
@@ -442,7 +451,7 @@ proc init {} {
         }
     }
 
-    startturn
+    start-turn
     chan event stdin readable [namespace code input]
 }
 
@@ -454,6 +463,7 @@ proc main {} {
     exit $done
 }
 
+# Output error and quit.
 proc bgerror args {
     puts stderr $::errorInfo
     quit-game 1
@@ -461,7 +471,7 @@ proc bgerror args {
 
 # Check if we were run as the primary script by the interpreter.
 # From http://wiki.tcl.tk/40097.
-proc mainScript {} {
+proc main-script? {} {
     global argv0
     if {[info exists argv0]
      && [file exists [info script]] && [file exists $argv0]} {
@@ -474,6 +484,6 @@ proc mainScript {} {
     }
 }
 
-if {[mainScript]} {
+if {[main-script?]} {
     main
 }
