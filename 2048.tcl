@@ -1,24 +1,18 @@
+#! /bin/env tclsh
+
 # A minimal implementation of the game 2048 in Tcl.
+# http://wiki.tcl.tk/39566
 package require Tcl 8.5
 package require struct::matrix
 package require struct::list
 
-# Enable single-keypress moves on Windows using TWAPI and on *nix using
-# TTY raw mode.
-set inputMethod compatible
-catch {
-    package require term::ansi::ctrl::unix
-    ::term::ansi::ctrl::unix::raw
-    set inputMethod raw
-}
-catch {
-    package require twapi
-    twapi::modify_console_input_mode stdin -lineinput false -echoinput false
-    set inputMethod twapi
-}
+# utilities 
 
-# Board size.
-set size 4
+proc vars args {
+    foreach varname $args {
+        uplevel [list variable $varname]
+    }
+}
 
 # Iterate over all cells of the game board and run script for each.
 #
@@ -43,15 +37,23 @@ proc forcells {cellList varName1 varName2 cellVarName script} {
         set i [lindex $cell 0]
         set j [lindex $cell 1]
         set c [cell-get $cell]
-        uplevel $script
-        cell-set "$i $j" $c
+        set status [catch [list uplevel $script] cres copts]
+        switch $status {
+            2 {
+                return -options [dict replace $copts -level 2] $cres
+            }
+            default {
+                return -options $copts $cres
+            }
+        }
+        cell-set [list $i $j] $c
     }
 }
-
+ 
 # Generate a list of cell indexes for all cells on the board, i.e.,
 # {{0 0} {0 1} ... {0 size-1} {1 0} {1 1} ... {size-1 size-1}}.
 proc cell-indexes {} {
-    global size
+    variable size
     set list {}
     foreach i [::struct::list iota $size] {
         foreach j [::struct::list iota $size] {
@@ -60,13 +62,13 @@ proc cell-indexes {} {
     }
     return $list
 }
-
+ 
 # Check if a number is a valid cell index (is 0 to size-1).
-proc valid-index {i} {
-    global size
+proc valid-index i {
+    variable size
     expr {0 <= $i && $i < $size}
 }
-
+ 
 # Return 1 if the predicate pred is true when applied to all items on the list
 # or 0 otherwise.
 proc map-and {list pred} {
@@ -77,34 +79,35 @@ proc map-and {list pred} {
     }
     return $res
 }
-
+ 
 # Check if list represents valid cell coordinates.
 proc valid-cell? cell {
     map-and $cell valid-index
 }
-
+ 
 # Get the value of a game board cell.
 proc cell-get cell {
     board get cell {*}$cell
 }
-
+ 
 # Set the value of a game board cell.
 proc cell-set {cell value} {
     board set cell {*}$cell $value
 }
-
+ 
 # Filter a list of board cell indexes cellList to only have those indexes
 # that correspond to empty board cells.
-proc empty {cellList} {
+proc empty cellList {
     ::struct::list filterfor x $cellList {[cell-get $x] == 0}
 }
-
+ 
 # Pick a random item from the given list.
 proc pick list {
     lindex $list [expr {int(rand() * [llength $list])}]
 }
-
-# Put a "2" into an empty cell on the board.
+ 
+# Put a "2*" into an empty cell on the board. The star is to indicate it's new
+# for the player's convenience.
 proc spawn-new {} {
     set emptyCell [pick [empty [cell-indexes]]]
     if {[llength $emptyCell] > 0} {
@@ -114,7 +117,7 @@ proc spawn-new {} {
     }
     return $emptyCell
 }
-
+ 
 # Return vector sum of lists v1 and v2.
 proc vector-add {v1 v2} {
     set result {}
@@ -123,23 +126,22 @@ proc vector-add {v1 v2} {
     }
     return $result
 }
-
+ 
 # If checkOnly is false try to shift all cells one step in the direction of
 # directionVect. If checkOnly is true just say if that move is possible.
 proc move-all {directionVect {checkOnly 0}} {
     set changedCells 0
-
+ 
     forcells [cell-indexes] i j cell {
-        set newIndex [vector-add "$i $j" $directionVect]
+        set newIndex [vector-add [list $i $j] $directionVect]
         set removedStar 0
-
+ 
         # For every nonempty source cell and valid destination cell...
         if {$cell != 0 && [valid-cell? $newIndex]} {
             if {[cell-get $newIndex] == 0} {
                 # Destination is empty.
                 if {$checkOnly} {
-                    # -level 2 is to return from both forcells and move-all.
-                    return -level 2 true
+                    return true
                 } else {
                     # Move tile to empty cell.
                     cell-set $newIndex $cell
@@ -162,11 +164,11 @@ proc move-all {directionVect {checkOnly 0}} {
             }
         }
     }
-
+ 
     if {$checkOnly} {
         return false
     }
-
+ 
     # Remove "changed this turn" markers at the end of the turn.
     if {$changedCells == 0} {
         forcells [cell-indexes] i j cell {
@@ -175,29 +177,28 @@ proc move-all {directionVect {checkOnly 0}} {
     }
     return $changedCells
 }
-
+ 
 # Is it possible to move any tiles in the direction of directionVect?
-proc can-move? {directionVect} {
+proc can-move? directionVect {
     move-all $directionVect 1
 }
-
+ 
 # Check win condition. The player wins when there's a 2048 tile.
 proc check-win {} {
     forcells [cell-indexes] i j cell {
         if {$cell == 2048} {
-            puts "You win!"
-            quit-game
+            variable output "You win!\n"
+            quit-game 0
         }
     }
 }
-
+ 
 # Check lose condition. The player loses when the win condition isn't met and
 # there are no possible moves.
-proc check-lose {possibleMoves} {
-    set values [dict values $possibleMoves]
-    if {!(true in $values || 1 in $values)} {
-        puts "You lose."
-        quit-game
+proc check-lose possibleMoves {
+    if {![llength $possibleMoves]} {
+        variable output "You lose.\n"
+        quit-game 0
     }
 }
 
@@ -205,117 +206,270 @@ proc check-lose {possibleMoves} {
 proc print-board {{highlight {-1 -1}}} {
     forcells [cell-indexes] i j cell {
         if {$j == 0} {
-            puts ""
+            append res \n 
         }
-        puts -nonewline [
+        append res [
             if {$cell != 0} {
-                if {[::struct::list equal "$i $j" $highlight]} {
-                    format "\[%4s\]" $cell*
+                if {[struct::list equal [list $i $j] $highlight]} {
+                    format {[%4s*]} $cell
                 } else {
-                    format "\[%4s\]" $cell
+                    format {[%4s]} $cell
                 }
-
             } else {
-                lindex "......"
+                lindex ......
             }
         ]
     }
-    puts "\n"
+    append res \n
 }
 
-# Reset terminal/console and exit.
-proc quit-game {} {
-    global inputMethod
+proc quit-game status {
+    vars done inputMethod inputmode_save output playing stty_save turns
+    #after cancel $playing
+    #chan event stdin readable {}
+    puts $output[set output {}]
+    puts [list turns $turns]
+    set turns 0
     switch $inputMethod {
         twapi {
-            twapi::modify_console_input_mode stdin -lineinput true \
-                                                   -echoinput true
+            twapi::modify_console_input_mode stdin {*}$inputmode_save
         }
         raw {
-            ::term::ansi::ctrl::unix::cooked
+            if {$inputmode_save ne {}} {
+                exec stty $inputmode_save 2>@stderr
+            }
         }
-   }
-   exit 0
-}
-
-# Return player input or quit if it's "q".
-proc get-player-input {} {
-    global inputMethod
-    set input [
-        switch $inputMethod {
-            twapi { read stdin 1 }
-            raw { read stdin 1 }
-            default { gets stdin }
-        }
-    ]
-    if {$input eq "q"} {
-        quit-game
     }
-    return $input
+    set done $status 
+    return -level 2 
 }
 
-proc main {} {
-    global size
+proc input {} {
+    vars inputMethod output playing
+    variable playerInput [read stdin 1]
+    if {[set charcode [scan $playerInput %c]] in [list 10 {}]} {
+        if {$charcode eq 10 && $inputMethod ne {}} {
+            #this only happens in raw/twapi mode.  add a newline to stdout
+            append output \n
+        }
+        set playerInput {}
+    }
+    after cancel $playing
+    play_user
+}
 
+proc play_user {} {
+    vars controls inputMethod output playerInput playerMove \
+        playtype possibleMoves preferences size
+    if {!$size} {
+        set size $playerInput
+        if {![string is digit $size]} {
+            set size 0
+            return
+        }
+        if {$size eq {}} {
+            set size 4
+        }
+        # Generate an empty board of a given size.
+        board add columns $size
+        board add rows $size
+        forcells [cell-indexes] i j cell {
+            set cell 0
+        }
+ 
+        after idle startturn
+        return
+    }
+
+    switch [scan $playerInput %c] {
+        3 {
+            if {$playtype eq random} {
+                set playtype user
+            } else {
+                quit-game 0
+            }
+        }
+    }
+    if {[dict exists $preferences $playerInput]} {
+        switch $playerInput {
+            q {
+                quit-game 0
+            }
+            r {
+                set playtype random
+                after idle [namespace code play_random]
+                return
+            }
+            ? {
+                append output $controls\n
+                append output $preferences\n
+            }
+        }
+    } elseif {$playerInput in $possibleMoves} {
+        set playerMove [dict get $controls $playerInput]
+    }
+    turn
+}
+
+proc play_random {} {
+    vars controls playing playerInput possibleMoves
+    variable delay 1000
+    set playerInput [lindex $possibleMoves [
+            expr {entier(rand() * [llength $possibleMoves])}]]
+    play_user
+    set playing [after $delay [namespace code play_random]]
+}
+
+proc turn {} {
+    vars playerMove turns
+    if {$playerMove eq {}} {
+        flush stdout
+    } else {
+        incr turns
+        # Apply current move until no changes occur on the board.
+        while true {
+            if {[move-all $playerMove] == 0} break
+        }
+    }
+    startturn
+}
+
+proc startturn {} {
+    vars controls inputMethod output ingame
+    variable playerMove {} 
+    variable possibleMoves {}
+    #buffer output to speed up rending on slower terminals
+    if {!$ingame} {
+        puts {type "?" for help at any time after entering board size}
+        puts {select board size (4)}
+        set ingame 1
+        return
+    }
+
+    switch $inputMethod {
+        twapi {
+            twapi::clear_console stdout
+        }
+        raw {
+            ::term::ansi::send::clear
+        }
+    }
+
+    # Add new tile to the board and print the board highlighting this tile.
+    append output \n[print-board [spawn-new]]
+    check-win
+
+    # Find possible moves.
+    foreach {button vector} $controls {
+        if {[can-move? $vector]} {
+            lappend possibleMoves $button
+        }
+    }
+    check-lose $possibleMoves
+
+    append output "\nMove ("
+    foreach {button vector} $controls {
+        if {$button in $possibleMoves} {
+            append output $button
+        }
+    }
+    append output {)? }
+    puts -nonewline $output[set output {}]
+    flush stdout
+}
+
+proc init {} {
+    # Board size.
+    variable size 0 
+    variable playmode play_user 
+    variable cell
+    variable delay 0
+    variable ingame 0
+    variable playing {}
+    variable playtype user
+    variable turns 0 
+ 
     struct::matrix board
 
-    chan configure stdin -buffering none
-
-    # Generate an empty board of a given size.
-    board add columns $size
-    board add rows $size
-    forcells [cell-indexes] i j cell {
-        set cell 0
+    variable inputmode_save {}
+    variable inputMethod {}
+    chan configure stdin -blocking 0
+    if {![catch {package require twapi}]} {
+        set inputmode_save [twapi::get_console_input_mode stdin]
+        twapi::modify_console_input_mode stdin -lineinput false \
+            -echoinput false
+        set inputMethod twapi
+    } else {
+        catch {
+            if {[auto_execok stty] ne {}} {
+                if {[catch {set inputmode_save [
+                    exec stty -g 2>@stderr]} eres eopts]} {
+                    return
+                    #todo: find other ways to save terminal state
+                }
+                package require term::ansi::ctrl::unix
+                package require term::ansi::send
+                term::ansi::ctrl::unix::raw
+                set inputMethod raw
+            }
+        }
     }
 
-    set controls {
+    variable controls {
         h {0 -1}
         j {1 0}
         k {-1 0}
         l {0 1}
     }
 
-    # Game loop.
-    while true {
-        set playerMove 0
-        set possibleMoves {}
+    variable preferences {
+        q quit
+        r {random play
+            You can speed through random play by pressing "r" in quick
+            succession
 
-        # Add new tile to the board and print the board highlighting this tile.
-        print-board [spawn-new]
-
-        check-win
-
-        # Find possible moves.
-        foreach {button vector} $controls {
-            dict set possibleMoves $button [can-move? $vector]
+            press any other valid input key to interrupt random play
         }
-        check-lose $possibleMoves
-
-        # Get valid input from the player.
-        while {$playerMove == 0} {
-            # Print prompt.
-            puts -nonewline "Move ("
-            foreach {button vector} $controls {
-                if {[dict get $possibleMoves $button]} {
-                    puts -nonewline $button
-                }
-            }
-            puts ")?"
-
-            set playerInput [get-player-input]
-
-            # Validate input.
-            if {[dict exists $possibleMoves $playerInput] &&
-                [dict get $possibleMoves $playerInput]} {
-                set playerMove [dict get $controls $playerInput]
-            }
+        ? {help
         }
+    }
 
-        # Apply current move until no changes occur on the board.
-        while true {
-            if {[move-all $playerMove] == 0} break
-        }
+    startturn
+    chan event stdin readable [namespace code input]
+ 
+}
+
+proc main {} {
+    variable done
+    interp bgerror {} [namespace code bgerror]
+    after idle init
+    vwait [namespace current]::done
+    exit $done
+}
+
+proc bgerror args {
+    puts stderr $::errorInfo
+    quit-game 1
+}
+
+
+#from http://wiki.tcl.tk/40097
+proc mainScript {} {
+    global argv0
+    if {[info exists argv0]
+     && [file exists [info script]] && [file exists $argv0]} {
+        file stat $argv0        argv0Info
+        file stat [info script] scriptInfo
+        expr {$argv0Info(dev) == $scriptInfo(dev)
+           && $argv0Info(ino) == $scriptInfo(ino)}
+    } else {
+        return 0
     }
 }
 
-main
+if {[mainScript]} {
+    main
+}
+
+ 
+
