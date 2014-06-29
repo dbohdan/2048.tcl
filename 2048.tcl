@@ -247,7 +247,7 @@ proc quit-game status {
         }
     }
     set done $status
-    return -level 2
+    return -level 3
 }
 
 # Event-driven input. Called when a key is pressed by the player.
@@ -280,7 +280,7 @@ proc play-user {} {
         if {$size == 0} {
             return
         }
-        # Default.
+        # Default size on <enter>.
         if {$size eq {}} {
             set size 4
         }
