@@ -273,10 +273,14 @@ proc play-user {} {
     if {!$size} {
         # Game starting.
         set size $playerInput
-        if {![string is digit $size]} {
+        # Handle zero, one and non-digit input.
+        if {![string is digit $size] || $size == 1} {
             set size 0
+        }
+        if {$size == 0} {
             return
         }
+        # Default.
         if {$size eq {}} {
             set size 4
         }
