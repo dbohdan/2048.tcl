@@ -348,12 +348,12 @@ proc play-user {} {
 }
 
 # Set user input to a random possible move.
-proc play-random {continous} {
+proc play-random {continuous} {
     vars controls playing playerInput possibleMoves
     variable delay 1000
     set playerInput [pick $possibleMoves]
     play-user
-    if {$continous} {
+    if {$continuous} {
         set playing [after $delay [namespace code {play-random 1}]]
     }
 }
