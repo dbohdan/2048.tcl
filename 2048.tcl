@@ -1,6 +1,6 @@
 #! /bin/env tclsh
 # A minimal implementation of the game 2048 in Tcl.
-# Version 0.2.5.
+# Version 0.2.6.
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
@@ -321,7 +321,12 @@ proc play-user {} {
             }
             r {
                 set playType random
-                after idle [namespace code play-random]
+                after idle [namespace code {play-random 0}]
+                return
+            }
+            R {
+                set playType random
+                after idle [namespace code {play-random 1}]
                 return
             }
             ? {
@@ -343,12 +348,14 @@ proc play-user {} {
 }
 
 # Set user input to a random possible move.
-proc play-random {} {
+proc play-random {continous} {
     vars controls playing playerInput possibleMoves
     variable delay 1000
     set playerInput [pick $possibleMoves]
     play-user
-    set playing [after $delay [namespace code play-random]]
+    if {$continous} {
+        set playing [after $delay [namespace code {play-random 1}]]
+    }
 }
 
 # Apply player's move, if any, and incr turn counter.
@@ -464,6 +471,7 @@ proc init {} {
     variable preferences {
         q quit
         r {random move}
+        R {automatic random play (make any valid move to stop)}
         ? help
     }
 
