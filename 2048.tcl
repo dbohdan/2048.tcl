@@ -231,11 +231,16 @@ proc print-board {{highlight {-1 -1}}} {
 # Exit game with a return status.
 proc quit-game status {
     vars done inputMethod inputmode_save output playing stty_save turns
-    #after cancel $playing
-    #chan event stdin readable {}
+
     puts $output[set output {}]
-    puts [list $turns turns]
-    set turns 0
+
+    # Print the total number of turns played.
+    set turnsMessage [list $turns turn]
+    if {($turns % 10 != 1) || ($turns % 100 == 11)} {
+        append turnsMessage s
+    }
+    puts $turnsMessage.
+
     switch $inputMethod {
         twapi {
             twapi::modify_console_input_mode stdin {*}$inputmode_save
@@ -247,7 +252,7 @@ proc quit-game status {
         }
     }
     set done $status
-    exit 0
+    exit $status
 }
 
 # Event-driven input. Called when a key is pressed by the player.
@@ -318,8 +323,15 @@ proc play-user {} {
                 return
             }
             ? {
-                append output $controls\n
-                append output $preferences\n
+                proc print-msg dictionary {
+                    upvar 1 output output
+                    puts $dictionary
+                    foreach {key message} $dictionary {
+                        append output "$key: $message\n"
+                    }
+                }
+                append output "[join [dict keys $controls] {, }]: movement\n"
+                print-msg $preferences
             }
         }
     } elseif {$playerInput in $possibleMoves} {
@@ -449,14 +461,8 @@ proc init {} {
 
     variable preferences {
         q quit
-        r {random play
-            You can speed through random play by pressing "r" in quick
-            succession
-
-            press any other valid input key to interrupt random play
-        }
-        ? {help
-        }
+        r {random move}
+        ? help
     }
 
     start-turn
