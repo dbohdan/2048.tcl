@@ -1,6 +1,6 @@
 #! /bin/env tclsh
 # A minimal implementation of the game 2048 in Tcl.
-# Version 0.2.4.
+# Version 0.2.5.
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
@@ -232,14 +232,16 @@ proc print-board {{highlight {-1 -1}}} {
 proc quit-game status {
     vars done inputMethod inputmode_save output playing stty_save turns
 
-    puts $output[set output {}]
+    if [info exists output] {
+        puts $output[set output {}]
 
-    # Print the total number of turns played.
-    set turnsMessage [list $turns turn]
-    if {($turns % 10 != 1) || ($turns % 100 == 11)} {
-        append turnsMessage s
+        # Print the total number of turns played.
+        set turnsMessage [list $turns turn]
+        if {($turns % 10 != 1) || ($turns % 100 == 11)} {
+            append turnsMessage s
+        }
+        puts $turnsMessage.
     }
-    puts $turnsMessage.
 
     switch $inputMethod {
         twapi {
@@ -280,7 +282,7 @@ proc play-user {} {
         set size $playerInput
         # Handle zero, one and non-digit input.
         if {$size eq "q"} {
-            exit 0
+            quit-game 0
         }
         if {![string is digit $size] || $size == 1} {
             set size 0
@@ -372,7 +374,7 @@ proc start-turn {{makeNewTile 1}} {
     variable possibleMoves {}
     #buffer output to speed up rending on slower terminals
     if {!$ingame} {
-        puts {Press "?" at any time after entering board size for help.}
+        puts {Press "?" at any time after entering the board size for help.}
         puts {Press "q" to quit.}
         puts {Select board size (4)}
         set ingame 1
