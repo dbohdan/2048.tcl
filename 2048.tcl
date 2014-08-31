@@ -5,7 +5,7 @@
 # LICENSE for details.
 # More at:
 # - https://github.com/dbohdan/2048-tcl -- Git repository;
-# - http://wiki.tcl.tk/39566            -- discussion.
+# - http://wiki.tcl.tk/40557            -- discussion.
 
 package require Tcl 8.5
 package require struct::matrix

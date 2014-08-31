@@ -1,4 +1,4 @@
-2048-tcl
+2048.tcl
 ========
 
 The game of 2048 implemented in Tcl. Can be played on *nix and Windows in a terminal/command line window.
