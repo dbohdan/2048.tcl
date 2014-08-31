@@ -1,6 +1,6 @@
 #! /bin/env tclsh
 # A minimal implementation of the game 2048 in Tcl.
-# Version 0.2.3.
+# Version 0.2.4.
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
@@ -216,7 +216,7 @@ proc print-board {{highlight {-1 -1}}} {
         append res [
             if {$cell != 0} {
                 if {[struct::list equal [list $i $j] $highlight]} {
-                    format {[%4s*]} $cell
+                    format {[%3s*]} $cell
                 } else {
                     format {[%4s]} $cell
                 }
@@ -234,7 +234,7 @@ proc quit-game status {
     #after cancel $playing
     #chan event stdin readable {}
     puts $output[set output {}]
-    puts [list turns $turns]
+    puts [list $turns turns]
     set turns 0
     switch $inputMethod {
         twapi {
@@ -247,7 +247,7 @@ proc quit-game status {
         }
     }
     set done $status
-    return -level 3
+    exit 0
 }
 
 # Event-driven input. Called when a key is pressed by the player.
@@ -274,6 +274,9 @@ proc play-user {} {
         # Game starting.
         set size $playerInput
         # Handle zero, one and non-digit input.
+        if {$size eq "q"} {
+            exit 0
+        }
         if {![string is digit $size] || $size == 1} {
             set size 0
         }
@@ -357,8 +360,9 @@ proc start-turn {{makeNewTile 1}} {
     variable possibleMoves {}
     #buffer output to speed up rending on slower terminals
     if {!$ingame} {
-        puts {type "?" for help at any time after entering board size}
-        puts {select board size (4)}
+        puts {Press "?" at any time after entering board size for help.}
+        puts {Press "q" to quit.}
+        puts {Select board size (4)}
         set ingame 1
         return
     }
