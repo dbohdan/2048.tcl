@@ -1,6 +1,6 @@
 #! /bin/env tclsh
 # A minimal implementation of the game 2048 in Tcl.
-# Version 0.3.0.
+# Version 0.3.1.
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
@@ -10,8 +10,8 @@
 package require Tcl 8.5
 
 namespace eval 2048 {
-namespace ensemble create
-namespace export *
+    namespace ensemble create
+    namespace export *
 
     # Utility procs.
 
@@ -236,7 +236,9 @@ namespace export *
     # Check lose condition. The player loses when the win condition isn't met
     # and there are no possible moves.
     proc check-lose possibleMoves {
-        if {![llength $possibleMoves]} {
+        # If not all board cells are empty and not possible moves remain...
+        if {![llength $possibleMoves] &&
+                ([board empty [board indexes]] ne [board indexes])} {
             variable output "You lose.\n"
             quit-game 0
         }
@@ -411,8 +413,10 @@ namespace export *
         # Add new tile to the board and print the board highlighting this tile.
         if {$makeNewTile} {
             set newTile [spawn-new-tile]
+        } else {
+            set newTile ""
         }
-        append output \n[board print $newTile]
+        append output \n[board print {*}[list $newTile]]
         check-win
 
         # Find possible moves.
@@ -491,8 +495,8 @@ namespace export *
     proc main {} {
         variable done
         interp bgerror {} [namespace code bgerror]
-        after idle [list [namespace code init]]
-        vwait [namespace current]::done
+        after idle [namespace code init]
+        vwait done
         exit $done
     }
 
@@ -511,8 +515,13 @@ proc main-script? {} {
             [file exists $argv0]} {
         file stat $argv0 argv0Info
         file stat [info script] scriptInfo
-        expr {$argv0Info(dev) == $scriptInfo(dev)
-           && $argv0Info(ino) == $scriptInfo(ino)}
+
+        # Run from a network drive on Windows.
+        package require platform
+        set platform [::platform::generic]
+        set windows [string match *win* $platform]
+        expr {($argv0Info(dev) == $scriptInfo(dev)) &&
+                ($windows || ($argv0Info(ino) == $scriptInfo(ino)))}
     } else {
         return 0
     }
