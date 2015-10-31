@@ -5,7 +5,7 @@
 # LICENSE for details.
 # More at:
 # - https://github.com/dbohdan/2048-tcl -- Git repository;
-# - http://wiki.tcl.tk/40557            -- discussion.
+# - http://tcl.wiki/40557               -- discussion.
 
 package require Tcl 8.5
 
@@ -508,7 +508,7 @@ namespace eval 2048 {
 }
 
 # Check if we were run as the primary script by the interpreter.
-# From http://wiki.tcl.tk/40097.
+# From http://tcl.wiki/40097.
 proc main-script? {} {
     global argv0
     if {[info exists argv0] && [file exists [info script]] &&
