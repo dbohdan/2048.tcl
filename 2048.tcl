@@ -4,7 +4,7 @@
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
-# - https://github.com/dbohdan/2048-tcl -- Git repository;
+# - https://github.com/dbohdan/2048.tcl -- Git repository;
 # - http://tcl.wiki/40557               -- discussion.
 
 package require Tcl 8.5
