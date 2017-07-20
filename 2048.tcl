@@ -1,6 +1,6 @@
-#! /bin/env tclsh
-# A minimal implementation of the game 2048 in Tcl.
-# Version 0.3.1.
+#! /usr/bin/env tclsh
+# An implementation of the game 2048 in Tcl.
+# Version 0.4.0.
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
@@ -69,13 +69,33 @@ namespace eval 2048 {
             }
         }
 
-        # Generate a list of cell indexes for all cells on the board, i.e.,
-        # {{0 0} {0 1} ... {0 size-1} {1 0} {1 1} ... {size-1 size-1}}.
-        proc indexes {} {
+        # Generate a list of cell indexes for all cells on the board. The order
+        # in which the cell indexes appear depends on the value of
+        # directionVect. E.g., if directionVect is {1 1} the list will be
+        # {{0 0} {0 1} ... {0 size-1} {1 0} {1 1} ... {size-1 size-1}}
+        proc indexes {{directionVect {1 1}}} {
             variable size
+
+            lassign $directionVect delta(i) delta(j)
+            foreach varName {i j} {
+                switch -exact -- $delta($varName) {
+                    1 {
+                        set start($varName) 0
+                        set end($varName)   $size
+                    }
+                    -1 {
+                        set start($varName) [expr {$size - 1}]
+                        set end($varName)   -1
+                    }
+                    default {
+                        error "direction vector must be {?-?1 ?-?1}"
+                    }
+                }
+            }
+
             set list {}
-            for {set i 0} {$i < $size} {incr i} {
-                for {set j 0} {$j < $size} {incr j} {
+            for {set i $start(i)} {$i != $end(i)} {incr i $delta(i)} {
+                for {set j $start(j)} {$j != $end(j)} {incr j $delta(j)} {
                     lappend list [list $i $j]
                 }
             }
@@ -172,7 +192,11 @@ namespace eval 2048 {
         set changedCells 0
         lassign $directionVect di dj
 
-        board forcells [board indexes] i j cell {
+        # Traverse the board in such a way that tiles that are closer to the
+        # edges are merged first.
+        set indexDirVect [list \
+                [expr {$di == 0 ? 1 : -$di}] [expr {$dj == 0 ? 1 : -$dj}]]
+        board forcells [board indexes $indexDirVect] i j cell {
             set newIndex [list [expr {$i +  $di}] [expr {$j +  $dj}]]
             set removedStar 0
 
