@@ -449,8 +449,8 @@ namespace eval 2048 {
         # Add new tile to the board and print the board highlighting this tile.
         if {$makeNewTile} {
             set newTile [spawn-new-tile]
-        } else {
-            set newTile ""
+        } elseif {![info exists newTile]} {
+            set newTile {}
         }
         append output \n[board print {*}[list $newTile]]
         check-win
