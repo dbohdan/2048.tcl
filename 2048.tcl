@@ -242,6 +242,15 @@ namespace eval 2048 {
         return $changedCells
     }
 
+    # Return the sum of all numbers on all present tiles.
+    proc score {} {
+        set score 0
+        board forcells [board indexes] i j cell {
+            incr score $cell
+        }
+        return $score
+    }
+
     # Is it possible to move any tiles in the direction of directionVect?
     proc can-move? directionVect {
         move-all-tiles $directionVect 1
@@ -260,7 +269,7 @@ namespace eval 2048 {
     # Check lose condition. The player loses when the win condition isn't met
     # and there are no possible moves.
     proc check-lose possibleMoves {
-        # If not all board cells are empty and not possible moves remain...
+        # If not all board cells are empty and no possible moves remain...
         if {![llength $possibleMoves] &&
                 ([board empty [board indexes]] ne [board indexes])} {
             variable output "You lose.\n"
@@ -280,7 +289,7 @@ namespace eval 2048 {
             if {($turns % 10 != 1) || ($turns % 100 == 11)} {
                 append turnsMessage s
             }
-            puts $turnsMessage.
+            puts "$turnsMessage. [score] points."
         }
 
         switch $inputMethod {
@@ -365,10 +374,12 @@ namespace eval 2048 {
                     after idle [namespace code {play-random 1}]
                     return
                 }
+                s {
+                    append output "Score: [score]\n"
+                }
                 ? {
                     proc print-msg dictionary {
                         upvar 1 output output
-                        puts $dictionary
                         foreach {key message} $dictionary {
                             append output "$key: $message\n"
                         }
@@ -508,7 +519,8 @@ namespace eval 2048 {
         variable preferences {
             q quit
             r {random move}
-            R {automatic random play (make any valid move to stop)}
+            R {automatic random play (input anything to stop)}
+            s {show score}
             ? help
         }
 
