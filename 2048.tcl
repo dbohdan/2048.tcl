@@ -1,11 +1,11 @@
 #! /usr/bin/env tclsh
-# An implementation of the game 2048 in Tcl.
+# The game 2048 implemented in Tcl.
 # Version 0.4.0.
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
 # - https://github.com/dbohdan/2048.tcl -- Git repository;
-# - http://tcl.wiki/40557               -- discussion.
+# - https://tcl.wiki/40557              -- discussion.
 
 package require Tcl 8.5
 
@@ -35,20 +35,20 @@ namespace eval 2048 {
         variable data {}
         variable size 0
 
-        # Iterate over all cells of the game board and run script for each.
+        # Iterate over every cell of the game board and run $script for each.
         #
         # The game board is a 2D matrix of a fixed size that consists of
         # elements called "cells" that each can contain a number.
         #
-        # - cellList is a list of cell indexes (coordinates), which are
+        # - $cellList is a list of cell indexes (coordinates), which are
         # themselves lists of two numbers each. They each represent the location
         # of a given cell on the board.
-        # - varName1 are varName2 are names of the variables the will be
-        # assigned the index values.
-        # - cellVarName is the name of the variable that at each step of
-        # iteration will contain the numerical value of the present cell.
-        # Assigning to it will change the cell's value.
-        # - script is the script to run.
+        # - $varName1 and $varName2 are the names of the variables that will be
+        # assigned the current cell's indexes when running the script.
+        # - $cellVarName is the name of the variable that at each step will
+        # contain the numerical value of the current cell. Assigning to it
+        # will change the cell's value.
+        # - $script is the script to run.
         proc forcells {cellList varName1 varName2 cellVarName script} {
             upvar $varName1 i
             upvar $varName2 j
@@ -69,9 +69,9 @@ namespace eval 2048 {
             }
         }
 
-        # Generate a list of cell indexes for all cells on the board. The order
+        # Generate a list of cell indexes for every cell of the board. The order
         # in which the cell indexes appear depends on the value of
-        # directionVect. E.g., if directionVect is {1 1} the list will be
+        # $directionVect. E.g., if $directionVect is {1 1} the list will be
         # {{0 0} {0 1} ... {0 size-1} {1 0} {1 1} ... {size-1 size-1}}
         proc indexes {{directionVect {1 1}}} {
             variable size
@@ -102,12 +102,12 @@ namespace eval 2048 {
             return $list
         }
 
-        # Check if list represents valid cell coordinates.
+        # Check if the list $cell represents a valid pair of cell coordinates.
         proc valid-cell? cell {
             variable size
             lassign $cell i j
             return [expr {(0 <= $i) && ($i < $size) &&
-                    (0 <= $j) && ($j < $size)}]
+                          (0 <= $j) && ($j < $size)}]
         }
 
         # Prepare the board for use. Must be called before any other board
@@ -135,7 +135,7 @@ namespace eval 2048 {
             dict set data $cell $value
         }
 
-        # Filter a list of board cell indexes cellList to only have those
+        # Filter the list of board cell indexes $cellList to only have those
         # indexes that correspond to empty board cells.
         proc empty cellList {
             set resultList {}
@@ -147,8 +147,8 @@ namespace eval 2048 {
             return $resultList
         }
 
-        # Pretty-print the board. Specify an index in highlight to highlight a
-        # cell.
+        # Pretty-print the board. Specify an index in $highlight to highlight a
+        # cell with a "*" after its contents.
         proc print {{highlight {-1 -1}}} {
             forcells [indexes] i j cell {
                 if {$j == 0} {
@@ -186,14 +186,14 @@ namespace eval 2048 {
         return $emptyCell
     }
 
-    # If checkOnly is false try to shift all cells one step in the direction of
-    # directionVect. If checkOnly is true just say if that move is possible.
+    # If $checkOnly is false try to shift all cells one step in the direction of
+    # $directionVect. If $checkOnly is true just say if that move is possible.
     proc move-all-tiles {directionVect {checkOnly 0}} {
         set changedCells 0
         lassign $directionVect di dj
 
-        # Traverse the board in such a way that tiles that are closer to the
-        # edges are merged first.
+        # Traverse the board in such a way that those tiles that are closer to
+        # the edges are merged first.
         set indexDirVect [list \
                 [expr {$di == 0 ? 1 : -$di}] [expr {$dj == 0 ? 1 : -$dj}]]
         board forcells [board indexes $indexDirVect] i j cell {
@@ -203,24 +203,24 @@ namespace eval 2048 {
             # For every nonempty source cell and valid destination cell...
             if {$cell != 0 && [board valid-cell? $newIndex]} {
                 if {[board get-cell $newIndex] == 0} {
-                    # Destination is empty.
+                    # The destination is empty.
                     if {$checkOnly} {
                         return true
                     } else {
-                        # Move tile to empty cell.
+                        # Move the tile to the empty cell.
                         board set-cell $newIndex $cell
                         set cell 0
                         incr changedCells
                     }
                 } elseif {([board get-cell $newIndex] eq $cell) &&
                           [string first + $cell] == -1} {
-                    # Destination is the same number as source.
+                    # The destination is the same number as the source.
                     if {$checkOnly} {
                         return -level 2 true
                     } else {
-                        # When merging two tiles into one mark the new tile with
-                        # the marker of "+" to ensure it doesn't get combined
-                        # again this turn.
+                        # When merging two tiles into one, mark the new tile
+                        # with the marker of "+" to ensure it doesn't get
+                        # combined again this turn.
                         board set-cell $newIndex [expr {2 * $cell}]+
                         set cell 0
                         incr changedCells
@@ -242,7 +242,7 @@ namespace eval 2048 {
         return $changedCells
     }
 
-    # Return the sum of all numbers on all present tiles.
+    # Return the sum of the numbers on all tiles.
     proc score {} {
         set score 0
         board forcells [board indexes] i j cell {
@@ -251,12 +251,12 @@ namespace eval 2048 {
         return $score
     }
 
-    # Is it possible to move any tiles in the direction of directionVect?
+    # Is it possible to move any tiles in the direction of $directionVect?
     proc can-move? directionVect {
         move-all-tiles $directionVect 1
     }
 
-    # Check win condition. The player wins when there's a 2048 tile.
+    # Check the win condition. The player wins when there is a 2048 tile.
     proc check-win {} {
         board forcells [board indexes] i j cell {
             if {$cell == 2048} {
@@ -266,8 +266,8 @@ namespace eval 2048 {
         }
     }
 
-    # Check lose condition. The player loses when the win condition isn't met
-    # and there are no possible moves.
+    # Check the lose condition. The player loses when the win condition isn't
+    # met and there are no possible moves.
     proc check-lose possibleMoves {
         # If not all board cells are empty and no possible moves remain...
         if {![llength $possibleMoves] &&
@@ -277,7 +277,7 @@ namespace eval 2048 {
         }
     }
 
-    # Exit game with a return status.
+    # Exit the game with an exit status.
     proc quit-game status {
         vars done inputMethod inputModeSaved output playing stty_save turns
 
@@ -306,7 +306,7 @@ namespace eval 2048 {
         exit $status
     }
 
-    # Event-driven input. Called when a key is pressed by the player.
+    # Event-driven input. Called when the player pressed a key.
     proc input {} {
         vars inputMethod output playing
         variable playerInput [read stdin 1]
@@ -321,13 +321,13 @@ namespace eval 2048 {
         play-user
     }
 
-    # Process user input at the start of the game or during play.
+    # Process the user input at the start of the game or during play.
     proc play-user {} {
         vars controls inputMethod output playerInput playerMove \
             playType possibleMoves preferences size
 
         if {!$size} {
-            # Game starting.
+            # The game is starting.
             set size $playerInput
             # Handle zero, one and non-digit input.
             if {$size eq "q"} {
@@ -339,7 +339,7 @@ namespace eval 2048 {
             if {$size == 0} {
                 return
             }
-            # Default size on <enter>.
+            # Choose the default size on <enter>.
             if {$size eq {}} {
                 set size 4
             }
@@ -395,7 +395,7 @@ namespace eval 2048 {
         complete-turn
     }
 
-    # Set user input to a random possible move.
+    # Set the user input to a random possible move.
     proc play-random {continuous} {
         vars controls playing playerInput possibleMoves
         variable delay 1000
@@ -406,7 +406,7 @@ namespace eval 2048 {
         }
     }
 
-    # Apply player's move, if any, and incr turn counter.
+    # Apply the player's move, if any, and increment the turn counter.
     proc complete-turn {} {
         vars playerMove turns
         if {$playerMove eq {}} {
@@ -414,7 +414,7 @@ namespace eval 2048 {
             start-turn 0
         } else {
             incr turns
-            # Apply current move until no changes occur on the board.
+            # Apply the current move until no changes occur on the board.
             while true {
                 if {[move-all-tiles $playerMove] == 0} break
             }
@@ -427,7 +427,7 @@ namespace eval 2048 {
         vars controls inputMethod output ingame newTile
         variable playerMove {}
         variable possibleMoves {}
-        #buffer output to speed up rending on slower terminals
+        # Buffer the output to speed up the rending on slower terminals.
         if {!$ingame} {
             puts {Press "?" at any time after entering the board size for help.}
             puts {Press "q" to quit.}
@@ -446,7 +446,8 @@ namespace eval 2048 {
             }
         }
 
-        # Add new tile to the board and print the board highlighting this tile.
+        # Add a new tile to the board and print the board highlighting that
+        # tile.
         if {$makeNewTile} {
             set newTile [spawn-new-tile]
         } elseif {![info exists newTile]} {
@@ -455,7 +456,7 @@ namespace eval 2048 {
         append output \n[board print {*}[list $newTile]]
         check-win
 
-        # Find possible moves.
+        # Find the possible moves.
         foreach {button vector} $controls {
             if {[can-move? $vector]} {
                 lappend possibleMoves $button
@@ -474,7 +475,7 @@ namespace eval 2048 {
         flush stdout
     }
 
-    # Set up game board and controls.
+    # Set up the game board and the controls.
     proc init {} {
         # Board size.
         variable size 0
@@ -500,7 +501,8 @@ namespace eval 2048 {
                     if {[catch {set inputModeSaved [
                         exec stty -g 2>@stderr]} eres eopts]} {
                         return
-                        #todo: find other ways to save terminal state
+                        # TODO: Find other ways to save the state of the
+                        # terminal.
                     }
                     package require term::ansi::ctrl::unix
                     package require term::ansi::send
@@ -545,7 +547,7 @@ namespace eval 2048 {
 }
 
 # Check if we were run as the primary script by the interpreter.
-# From http://tcl.wiki/40097.
+# From https://tcl.wiki/40097.
 proc main-script? {} {
     global argv0
     if {[info exists argv0] && [file exists [info script]] &&
@@ -553,7 +555,7 @@ proc main-script? {} {
         file stat $argv0 argv0Info
         file stat [info script] scriptInfo
 
-        # Run from a network drive on Windows.
+        # Adjust for running from a network drive on Windows.
         package require platform
         set platform [::platform::generic]
         set windows [string match *win* $platform]
