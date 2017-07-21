@@ -439,6 +439,7 @@ namespace eval 2048 {
         switch $inputMethod {
             twapi {
                 twapi::clear_console stdout
+                twapi::set_console_cursor_position stdout {0 0}
             }
             raw {
                 ::term::ansi::send::clear
