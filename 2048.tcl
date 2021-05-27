@@ -7,7 +7,7 @@
 # - https://github.com/dbohdan/2048.tcl -- Git repository;
 # - https://wiki.tcl-lang.org/40557     -- discussion.
 
-package require Tcl 8.5
+package require Tcl 8.5-10
 
 namespace eval 2048 {
     namespace ensemble create
