@@ -1,6 +1,6 @@
 #! /usr/bin/env tclsh
 # The game 2048 implemented in Tcl.
-# Version 0.4.0.
+# Version 0.4.1.
 # This code is released under the terms of the MIT license. See the file
 # LICENSE for details.
 # More at:
