@@ -1,13 +1,15 @@
 #! /usr/bin/env tclsh
 # The game 2048 implemented in Tcl.
 # Version 1.0.0.
-# This code is released under the terms of the MIT license. See the file
-# LICENSE for details.
+#
+# This code is released under the terms of the MIT license.
+# See the file LICENSE for details.
+#
 # More at:
-# - https://github.com/dbohdan/2048.tcl -- Git repository;
-# - https://wiki.tcl-lang.org/40557     -- discussion.
+# - https://github.com/dbohdan/2048.tcl -- Git repository
+# - https://wiki.tcl-lang.org/40557 -- discussion
 
-package require Tcl 8.5 9
+package require Tcl 8.6 9
 
 namespace eval 2048 {
     namespace ensemble create
@@ -56,15 +58,18 @@ namespace eval 2048 {
             foreach cell $cellList {
                 lassign $cell i j
                 set c [get-cell $cell]
-                set status [catch [list uplevel $script] cres copts]
-                switch $status {
-                    2 {
-                        return -options [dict replace $copts -level 2] $cres
-                    }
-                    default {
-                        return -options $copts $cres
-                    }
+
+                try {
+                    uplevel $script
+                } on ok {res opts} - \
+                  on error {res opts} - \
+                  on break {res opts} - \
+                  on continue {res opts} {
+                    return -options $opts $res
+                } on return {res opts} {
+                    return -options [dict replace $opts -level 2] $res
                 }
+
                 set-cell [list $i $j] $c
             }
         }
@@ -352,7 +357,7 @@ namespace eval 2048 {
 
         switch [scan $playerInput %c] {
             3 {
-                if {$playType eq random} {
+                if {$playType eq {random}} {
                     set playType user
                 } else {
                     quit-game 0
@@ -490,25 +495,24 @@ namespace eval 2048 {
         variable inputModeSaved {}
         variable inputMethod {}
         chan configure stdin -blocking 0
-        if {![catch {package require twapi}]} {
+
+        try {
+            package require twapi
+
             set inputModeSaved [twapi::get_console_input_mode stdin]
             twapi::modify_console_input_mode stdin -lineinput false \
                 -echoinput false
             set inputMethod twapi
-        } else {
+        } on error _ {
             catch {
-                if {[auto_execok stty] ne {}} {
-                    if {[catch {set inputModeSaved [
-                        exec stty -g 2>@stderr]} eres eopts]} {
-                        return
-                        # TODO: Find other ways to save the state of the
-                        # terminal.
-                    }
-                    package require term::ansi::ctrl::unix
-                    package require term::ansi::send
-                    term::ansi::ctrl::unix::raw
-                    set inputMethod raw
-                }
+                set inputModeSaved [exec stty -g 2>@stderr]
+                # TODO: Find other ways to save the state of the
+                # terminal.
+
+                package require term::ansi::ctrl::unix
+                package require term::ansi::send
+                term::ansi::ctrl::unix::raw
+                set inputMethod raw
             }
         }
 
